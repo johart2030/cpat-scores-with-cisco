@@ -14,11 +14,6 @@ import { setCookie } from "cookies-next";
 import { useEffect, useRef, useState } from "react";
 import { trpc } from "./_trpc/client";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, TooltipProps, XAxis, YAxis } from "recharts";
-import {
-    ResizableHandle,
-    ResizablePanel,
-    ResizablePanelGroup,
-} from "@/components/ui/resizable"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Payload } from "recharts/types/component/DefaultTooltipContent";
@@ -94,6 +89,7 @@ export default function Content({ defaultTeams }: {
     const [openSettings, setOpenSettings] = useState(false);
     const [openEdit, setOpenEdit] = useState(false);
     const [showBulkImport, setShowBulkImport] = useState(false);
+    const [activeGraph, setActiveGraph] = useState<"images" | "cisco">("cisco");
     const [teams, setTeams] = useState<{ teamNum: string, teamName: string, color: string }[]>(defaultTeams.map(team => ({ ...team, color: team.color || '#fff' })));
     const [selectedTeamNums, setSelectedTeamNums] = useState<string[]>(() => defaultTeams.map(team => team.teamNum));
     const [teamInputs, setTeamInputs] = useState<{ id: number, teamNum: string, teamName: string, color: string }[]>(defaultTeams.map(team => ({ ...team, color: team.color || '#fff', id: Math.random() })));
@@ -362,294 +358,108 @@ export default function Content({ defaultTeams }: {
     return (
         <div className="w-full h-full min-h-0 flex flex-col overflow-y-auto">
             {teams.length > 0 && (
-                <section aria-labelledby="score-graph-title" className="w-full shrink-0 rounded-lg border border-neutral-800 bg-neutral-950/40 p-4 sm:p-6">
-                    <div className="mb-4">
-                        <h2 id="score-graph-title" className="text-xl font-semibold text-neutral-100">Cisco score comparison</h2>
-                        <p className="mt-1 text-sm text-neutral-400">Current score by team number</p>
-                    </div>
-                    {teamStats.some((team) => team.state !== "Unknown") ? (
-                        <div className="h-72 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={teamStats.map((team) => ({ ...team, teamName: teams.find((item) => item.teamNum === team.teamNum)?.teamName || team.teamNum }))} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-                                    <CartesianGrid vertical={false} stroke="#404040" />
-                                    <XAxis dataKey="teamNum" tickLine={false} axisLine={false} tickMargin={10} />
-                                    <YAxis tickLine={false} axisLine={false} width={48} />
-                                    <Tooltip
-                                        formatter={(value, _name, item) => [value, item.payload.teamName]}
-                                        labelFormatter={(label) => `Team ${label}`}
-                                        contentStyle={{ backgroundColor: "#171717", borderColor: "#404040", borderRadius: 8 }}
-                                    />
-                                    <Bar dataKey="score" name="Cisco score" radius={[4, 4, 0, 0]}>
-                                        {teamStats.map((team) => (
-                                            <Cell key={team.teamNum} fill={teams.find((item) => item.teamNum === team.teamNum)?.color || "#60a5fa"} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                <section aria-label="Score graphs" className="w-full shrink-0 rounded-lg border border-neutral-800 bg-neutral-950/40 p-4 sm:p-6">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-xl font-semibold text-neutral-100">Score graphs</h2>
+                            <p className="mt-1 text-sm text-neutral-400">Choose which score view to display.</p>
                         </div>
-                    ) : (
-                        <div className="flex h-40 items-center justify-center text-sm text-neutral-400">Cisco scores will appear here when they are available.</div>
-                    )}
-                </section>
-            )}
-            <div className="w-full flex-1 min-h-[500px]">
-            {teams.length > 0 ? (
-                settings.display === "horizontal" ? (
-                    <ResizablePanelGroup
-                        key={'main'}
-                        direction="horizontal"
-                        className="w-full h-full"
-                    >
-                        <ResizablePanel defaultValue={25} maxSize={50} minSize={25}>
-                            <div className="flex flex-col gap-y-2 h-full divide-y min-w-full overflow-y-auto">
-                                {teamStats.map((teamStat) => {
-                                    const teamName =
-                                        teams.find((team) => team.teamNum === teamStat.teamNum)?.teamName || "-";
-
-                                    return (
-                                        <Link
-                                            href={`https://scoreboard.uscyberpatriot.org/team.php?team=${teamStat.teamNum}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            key={teamStat.teamNum}
-                                            className="flex flex-col justify-center h-full my-auto px-5"
-                                        >
-                                        <div className="flex flex-col gap-y-1">
-                                            <div className="flex justify-between items-center gap-x-2">
-                                                <div>
-                                                    <h3
-                                                        className="text-lg font-semibold text-neutral-200 truncate"
-                                                        title={teamName}
-                                                    >
-                                                        {teamName}
-                                                    </h3>
-                                                    <h1 className="text-5xl font-semibold text-neutral-100 truncate">
-                                                        {teamStat.teamNum}
-                                                    </h1>
-                                                </div>
-                                                <div
-                                                    className="w-5 h-5 rounded-full flex-shrink-0"
-                                                    style={{ backgroundColor: teams.find((team) => team.teamNum === teamStat.teamNum)?.color }}
-                                                />
-                                            </div>
-                                            {teamStat.state !== "Unknown" ? (
-                                                <div className="flex justify-between items-center gap-x-3">
-                                                    <h2>
-                                                        {teamStat.score}{" "}
-                                                        <span className="text-neutral-500 truncate">
-                                                            - from {teamStat.state} ({teamStat.division})
-                                                        </span>
-                                                    </h2>
-                                                    <h3 className="text-sm text-neutral-400 whitespace-nowrap">
-                                                        #{teamStat.nationalRank} <span className="text-neutral-500">/ #{teamStat.stateRank}</span>
-                                                    </h3>
-                                                </div>
-                                            ) : (
-                                                <h2 className="text-neutral-500 truncate">
-                                                    Waiting to start...
-                                                </h2>
-                                            )}
-                                        </div> 
-                                        </Link>
-                                    );
-                                })}
-                            </div>
-                        </ResizablePanel>
-                        <ResizableHandle />
-                        <ResizablePanel defaultSize={75} minSize={50} maxSize={75} className="p-5 my-auto">
+                        <div className="inline-flex rounded-lg border border-neutral-700 p-1" role="tablist" aria-label="Score graph type">
+                            <button type="button" role="tab" aria-selected={activeGraph === "images"} onClick={() => setActiveGraph("images")} className={`rounded-md px-4 py-2 text-sm transition-colors ${activeGraph === "images" ? "bg-neutral-700 text-white" : "text-neutral-300 hover:bg-neutral-800"}`}>Images</button>
+                            <button type="button" role="tab" aria-selected={activeGraph === "cisco"} onClick={() => setActiveGraph("cisco")} className={`rounded-md px-4 py-2 text-sm transition-colors ${activeGraph === "cisco" ? "bg-neutral-700 text-white" : "text-neutral-300 hover:bg-neutral-800"}`}>Cisco</button>
+                        </div>
+                    </div>
+                    {activeGraph === "images" ? (
+                        <>
                             {renderTeamSelector()}
-                            <div className="w-full h-full">
-                                {(historicalStats.length > 0) ? (
-                                    <ResponsiveContainer width={'100%'} height={400}>
-                                        <LineChart
-                                            data={historicalStats.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())}
-                                            margin={{
-                                                left: 24,
-                                                right: 24,
-                                                top: 24,
-                                            }}
-                                        >
-                                            <CartesianGrid vertical={false} />
-                                            <XAxis
-                                                dataKey="date"
-                                                tickLine={false}
-                                                axisLine={false}
-                                                tickMargin={8}
-                                                tickFormatter={(date: Date) => new Date(date).toLocaleTimeString()}
-                                            />
-                                            {
-                                                settings.hideButtons ? null : (
-                                                    <Tooltip content={<CustomTooltip />} />
-                                                )
-                                            }
+                            <div className="h-72 w-full">
+                                {historicalStats.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={[...historicalStats].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())} margin={{ left: 12, right: 12, top: 8, bottom: 8 }}>
+                                            <CartesianGrid vertical={false} stroke="#404040" />
+                                            <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(date: string) => new Date(date).toLocaleTimeString()} />
+                                            {!settings.hideButtons && <Tooltip content={<CustomTooltip />} />}
                                             <YAxis tickLine={false} axisLine={false} />
-                                            {graphSeries.map((series) => (
-                                                <Line
-                                                    key={series.dataKey}
-                                                    dataKey={series.dataKey}
-                                                    name={series.label}
-                                                    fill={series.color}
-                                                    type="monotone"
-                                                    stroke={series.color}
-                                                    strokeWidth={2}
-                                                    dot={false}
-                                                />
-                                            ))}
+                                            {graphSeries.map((series) => <Line key={series.dataKey} dataKey={series.dataKey} name={series.label} type="monotone" stroke={series.color} strokeWidth={2} dot={false} />)}
                                         </LineChart>
                                     </ResponsiveContainer>
                                 ) : (
-                                    <div className="flex flex-col gap-y-3.5 h-full justify-center items-center text-neutral-400">
+                                    <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-neutral-400">
                                         {selectedTeamNums.length > 0 && <LoaderCircle className="animate-spin" />}
-                                        <div className="m-auto text-center max-w-lg">
-                                            <h1 className="text-neutral-500 font-semibold tracking-wide">
-                                                {selectedTeamNums.length === 0 ? "No teams selected" : "No data to display"}
-                                            </h1>
-                                            <h2 className="text-neutral-400 text-sm">
-                                                {selectedTeamNums.length === 0 ? "Select one or more teams above to graph their scores." : "Score history will appear when the selected teams have available image-score data."}
-                                            </h2>
+                                        <div>
+                                            <h3 className="font-semibold text-neutral-300">{selectedTeamNums.length === 0 ? "No teams selected" : "No image history yet"}</h3>
+                                            <p className="mt-1 text-sm">{selectedTeamNums.length === 0 ? "Select one or more teams above to view their image scores." : "Image score history will appear when data is available."}</p>
                                         </div>
                                     </div>
                                 )}
                             </div>
-                        </ResizablePanel>
-                    </ResizablePanelGroup>
-                ) : (
-                    <div className="flex flex-col w-full h-full gap-y-5 p-3">
-                        {renderTeamSelector()}
-                        <div className="w-full flex-1 min-h-0">
-                            {(historicalStats.length > 0) ? (
-                                <ResponsiveContainer width={'100%'} height={'100%'} >
-                                    <LineChart
-                                        data={historicalStats.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())}
-                                        margin={{
-                                            left: 0,
-                                            right: 0,
-                                            top: 0,
-                                        }}
-                                    >
-                                        <CartesianGrid vertical={false} />
-                                        <XAxis
-                                            dataKey="date"
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tickMargin={8}
-                                            tickFormatter={(date: Date) => new Date(date).toLocaleTimeString()}
-                                        />
-                                        {
-                                            settings.hideButtons ? null : (
-                                                <Tooltip content={<CustomTooltip />} />
-                                            )
-                                        }
-                                        <YAxis tickLine={false} axisLine={false} />
-                                        {graphSeries.map((series) => (
-                                            <Line
-                                                key={series.dataKey}
-                                                dataKey={series.dataKey}
-                                                name={series.label}
-                                                fill={series.color}
-                                                type="monotone"
-                                                stroke={series.color}
-                                                strokeWidth={2}
-                                                dot={false}
-                                            />
-                                        ))}
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="flex flex-col gap-y-3.5 h-full justify-center items-center text-neutral-400">
-                                    {selectedTeamNums.length > 0 && <LoaderCircle className="animate-spin" />}
-                                    <div className="text-center max-w-lg">
-                                        <h1 className="text-neutral-500 font-semibold tracking-wide">
-                                            {selectedTeamNums.length === 0 ? "No teams selected" : "No data to display"}
-                                        </h1>
-                                        <h2 className="text-neutral-400 text-sm">
-                                            {selectedTeamNums.length === 0 ? "Select one or more teams above to graph their scores." : "Score history will appear when the selected teams have available image-score data."}
-                                        </h2>
-                                    </div>
+                            {settings.showLegend && graphSeries.length > 0 && (
+                                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+                                    {graphSeries.map((series) => <div key={`${series.dataKey}-legend`} className="flex items-center gap-x-2"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: series.color }} /><span className="text-sm text-neutral-300">{series.label}</span></div>)}
                                 </div>
                             )}
-                        </div>
-                        <div className="flex gap-x-5 overflow-x-auto no-scrollbar">
-                            {teamStats.map((teamStat) => {
-                                const teamName =
-                                    teams.find((team) => team.teamNum === teamStat.teamNum)?.teamName || "-";
-
-                                return (
-                                    <Link
-                                        href={`https://scoreboard.uscyberpatriot.org/team.php?team=${teamStat.teamNum}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        key={teamStat.teamNum}
-                                        className="border flex flex-col justify-center h-full my-auto px-5 py-3 rounded-lg"
-                                        style={{ borderColor: teams.find((team) => team.teamNum === teamStat.teamNum)?.color }}
-                                    >
-                                        <div className="flex flex-col gap-y-2">
-                                            <div className="flex justify-between items-center gap-x-5 min-w-64">
-                                                <div>
-                                                    <h3
-                                                        className="text-lg font-semibold text-neutral-200 truncate"
-                                                        title={teamName}
-                                                    >
-                                                        {teamName}
-                                                    </h3>
-                                                    <h1 className="text-5xl font-semibold text-neutral-100 truncate">
-                                                        {teamStat.teamNum}
-                                                    </h1>
-                                                </div>
-
-                                            </div>
-                                            {teamStat.state !== "Unknown" ? (
-                                                <div className="flex justify-between items-center gap-x-4 whitespace-nowrap">
-                                                    <h2 className="truncate">
-                                                        {teamStat.score}{" "}
-                                                        <span className="text-neutral-500">
-                                                            - from {teamStat.state} ({teamStat.division})
-                                                        </span>
-                                                    </h2>
-                                                    <h3 className="text-sm text-neutral-400 flex-shrink-0">
-                                                        #{teamStat.nationalRank} <span className="text-neutral-500">/ #{teamStat.stateRank}</span>
-                                                    </h3>
-                                                </div>
-                                            ) : (
-                                                <h2 className="text-neutral-500 truncate">
-                                                    Waiting to start...
-                                                </h2>
-                                            )}
-                                        </div> 
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                        {settings.showLegend && (
-                            <div className="flex gap-x-5">
-                                {graphSeries.map((series) => (
-                                    <div key={series.dataKey + "-legend"} className="flex items-center gap-x-3">
-                                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: series.color }} />
-                                        <span className="text-sm text-neutral-300 truncate">{series.label}</span>
-                                    </div>
-                                ))}
+                        </>
+                    ) : (
+                        teamStats.some((team) => team.state !== "Unknown") ? (
+                            <div className="h-72 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={teamStats.map((team) => ({ ...team, teamName: teams.find((item) => item.teamNum === team.teamNum)?.teamName || team.teamNum }))} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                                        <CartesianGrid vertical={false} stroke="#404040" />
+                                        <XAxis dataKey="teamNum" tickLine={false} axisLine={false} tickMargin={10} />
+                                        <YAxis tickLine={false} axisLine={false} width={48} />
+                                        {!settings.hideButtons && <Tooltip formatter={(value, _name, item) => [value, item.payload.teamName]} labelFormatter={(label) => `Team ${label}`} contentStyle={{ backgroundColor: "#171717", borderColor: "#404040", borderRadius: 8 }} />}
+                                        <Bar dataKey="score" name="Cisco score" radius={[4, 4, 0, 0]} activeBar={false}>
+                                            {teamStats.map((team) => <Cell key={team.teamNum} fill={teams.find((item) => item.teamNum === team.teamNum)?.color || "#60a5fa"} />)}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
                             </div>
-                        )}
-                    </div>
-                )
-            ) : (
-                <div className="m-auto text-center max-w-lg space-y-3.5">
-                    <div className="space-y-0.5">
-                        <h1 className="text-neutral-500 font-semibold tracking-wide">
-                            No teams to track
-                        </h1>
-                        <h2 className="text-neutral-400 text-sm">
-                            Add some teams by clicking on the &quot;Edit Teams&quot; button or the pencil icon in the bottom right to get started
-                        </h2>
-                    </div>
-                    <div className="flex gap-x-2 justify-center">
-                        <Button onClick={() => setOpenEdit(true)} variant={"outline"}>Edit Teams</Button>
-                        <Link href="https://github.com/okdargy/cpat-scores">
-                            <Button variant={"outline"}>Star on GitHub</Button>
-                        </Link>
-                    </div>
-                </div>
+                        ) : (
+                            <div className="flex h-72 items-center justify-center text-sm text-neutral-400">Cisco scores will appear here when they are available.</div>
+                        )
+                    )}
+                </section>
             )}
+            <div className={"w-full flex-1 min-h-0 p-3 " + (settings.display === "horizontal" ? "flex flex-col gap-3 overflow-y-auto" : "grid auto-rows-max grid-cols-[repeat(auto-fit,minmax(18rem,1fr))] content-start gap-3 overflow-y-auto")}>
+                {teams.length > 0 ? teamStats.map((teamStat) => {
+                    const team = teams.find((item) => item.teamNum === teamStat.teamNum);
+                    const teamName = team?.teamName || teamStat.teamNum;
+                    return (
+                        <Link
+                            href={`https://scoreboard.uscyberpatriot.org/team.php?team=${teamStat.teamNum}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            key={teamStat.teamNum}
+                            className="flex flex-col justify-center rounded-lg border px-5 py-3 transition-colors hover:bg-neutral-900/60"
+                            style={{ borderColor: team?.color || "#404040" }}
+                        >
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="min-w-0">
+                                    <h3 className="truncate text-lg font-semibold text-neutral-200" title={teamName}>{teamName}</h3>
+                                    <h1 className="truncate text-4xl font-semibold text-neutral-100">{teamStat.teamNum}</h1>
+                                </div>
+                                <span className="h-4 w-4 shrink-0 rounded-full" style={{ backgroundColor: team?.color || "#60a5fa" }} />
+                            </div>
+                            {teamStat.state !== "Unknown" ? (
+                                <div className="mt-2 flex items-center justify-between gap-3">
+                                    <p className="truncate text-neutral-300">{teamStat.score} <span className="text-neutral-500">- {teamStat.state} ({teamStat.division})</span></p>
+                                    <p className="shrink-0 text-sm text-neutral-400">#{teamStat.nationalRank} <span className="text-neutral-500">/ #{teamStat.stateRank}</span></p>
+                                </div>
+                            ) : <p className="mt-2 text-neutral-500">Waiting to start...</p>}
+                        </Link>
+                    );
+                }) : (
+                    <div className="m-auto max-w-lg space-y-3.5 text-center">
+                        <div>
+                            <h1 className="font-semibold tracking-wide text-neutral-300">No teams to track</h1>
+                            <p className="mt-1 text-sm text-neutral-400">Add teams with the pencil button to see their Cisco and image scores.</p>
+                        </div>
+                        <div className="flex justify-center gap-2">
+                            <Button onClick={() => setOpenEdit(true)} variant="outline">Edit Teams</Button>
+                            <Link href="https://github.com/okdargy/cpat-scores"><Button variant="outline">Star on GitHub</Button></Link>
+                        </div>
+                    </div>
+                )}
             </div>
             <div className={"absolute bottom-3 right-3 space-x-2 transition-opacity " + (settings.hideButtons ? "opacity-0 hover:opacity-100" : "opacity-50 hover:opacity-100")}>
                 <Button variant="outline" className="opacity-50 hover:opacity-100 transition-opacity" onClick={() => { getTeamScores(); getGraphScores(); }}>
